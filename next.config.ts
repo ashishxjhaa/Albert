@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    dangerouslyAllowSVG: true,
+    remotePatterns: [
+      {
+        hostname: "*",
+      },
+    ],
+  },
+  serverExternalPackages: ["pg", "bcryptjs"],
 };
 
 export default nextConfig;
