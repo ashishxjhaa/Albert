@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 type DashboardClientProps = {
   email?: string | null;
@@ -9,20 +10,26 @@ type DashboardClientProps = {
 };
 
 export function DashboardClient({ email, name }: DashboardClientProps) {
+  const router = useRouter();
+
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-4 p-6">
       <h1 className="text-2xl font-medium tracking-tight">Dashboard</h1>
       <p className="text-sm opacity-80">Signed in as {email ?? name}</p>
       <p className="max-w-md text-center text-sm text-muted-foreground">
-        Temporary stub — UI rebuild starts from auth; more screens will be added
-        next.
+        Use workspaces to manage client campaigns.
       </p>
-      <Button
-        variant="outline"
-        onClick={() => signOut({ callbackUrl: "/login" })}
-      >
-        Sign out
-      </Button>
+      <div className="flex gap-3">
+        <Button variant="outline" onClick={() => router.push("/workspace")}>
+          Go to workspaces
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+        >
+          Sign out
+        </Button>
+      </div>
     </div>
   );
 }

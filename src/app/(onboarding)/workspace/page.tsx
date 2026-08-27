@@ -46,7 +46,7 @@ export default function WorkspaceOnboardingPage() {
         },
       },
     });
-    router.push(`/w/${workspace.id}`);
+    router.push(`/w/${workspace.id}/campaign`);
   };
 
   return (

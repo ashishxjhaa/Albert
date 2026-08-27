@@ -76,7 +76,7 @@ export default function CreateWorkspace({ onCreated }: CreateWorkspaceProps) {
       });
 
       onCreated?.();
-      router.push(`/w/${data.id}`);
+      router.push(`/w/${data.id}/campaign`);
     } catch (error) {
       toast.error((error as Error).message || "Failed to create workspace");
     }
