@@ -1,5 +1,6 @@
 "use client";
 
+import CampaignTabs from "@/components/campaign/CampaignTabs";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ArrowLeft } from "lucide-react";
@@ -18,16 +19,22 @@ export default function CampaignLayout({
   return (
     <div className="space-y-4">
       {!isIdeaDetail ? (
-        <Link
-          href={`/w/${params.workspace}/campaign`}
-          className={cn(
-            buttonVariants({ variant: "ghost", size: "sm" }),
-            "h-8 -ml-2 w-fit gap-1.5 text-muted-foreground"
-          )}
-        >
-          <ArrowLeft className="size-4" />
-          All Campaigns
-        </Link>
+        <>
+          <Link
+            href={`/w/${params.workspace}/campaign`}
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "sm" }),
+              "h-8 -ml-2 w-fit gap-1.5 text-muted-foreground"
+            )}
+          >
+            <ArrowLeft className="size-4" />
+            All Campaigns
+          </Link>
+          <CampaignTabs
+            workspace={params.workspace}
+            campaignId={params.campaignId}
+          />
+        </>
       ) : null}
       {children}
     </div>
