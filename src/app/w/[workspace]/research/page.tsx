@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { SocialResearchSession } from "@/lib/db/schema";
 import { Loader2, Search, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -80,7 +81,9 @@ export default function ResearchPage() {
         <div>
           <h1 className="text-2xl font-medium tracking-tight">Research</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Brand research sessions for this workspace (lean web snapshot)
+            Social research via Apify when Instagram/YouTube handles and{" "}
+            <code className="text-xs">APIFY_API_TOKEN</code> are set; otherwise a
+            web snapshot.
           </p>
         </div>
         <Button
@@ -93,7 +96,7 @@ export default function ResearchPage() {
           ) : (
             <Search className="size-4" />
           )}
-          Run Research
+          {isRunning ? "Running..." : "Run Research"}
         </Button>
       </div>
 
@@ -119,38 +122,51 @@ export default function ResearchPage() {
               No research yet
             </h4>
             <p className="mt-1 text-sm text-muted-foreground">
-              Run research to capture a brand snapshot. With TAVILY_API_KEY you
-              get web sources; otherwise a basic profile is saved.
+              Add Instagram or YouTube handles in{" "}
+              <Link
+                href={`/w/${params.workspace}/settings`}
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Settings
+              </Link>{" "}
+              for Apify social scraping. Without handles or an Apify token, Run
+              Research saves a web snapshot instead.
             </p>
           </div>
         </div>
       ) : (
         <ul className="space-y-3">
-          {rows.map(({ session, postsCount }) => (
-            <li key={session.id}>
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(
-                    `/w/${params.workspace}/research/${session.id}`
-                  )
-                }
-                className="flex w-full flex-col gap-1 rounded-xl border border-neutral-200 bg-white p-4 text-left transition-colors hover:bg-neutral-50"
-              >
-                <h3 className="font-medium tracking-tight">
-                  {session.brandName}
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  {formatDate(session.createdAt)} · {postsCount ?? 0} posts
-                </p>
-                {session.analysis ? (
-                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                    {session.analysis}
+          {rows.map(({ session, postsCount }) => {
+            const platforms = session.platformsAnalyzed ?? [];
+            return (
+              <li key={session.id}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      `/w/${params.workspace}/research/${session.id}`
+                    )
+                  }
+                  className="flex w-full flex-col gap-1 rounded-xl border border-neutral-200 bg-white p-4 text-left transition-colors hover:bg-neutral-50"
+                >
+                  <h3 className="font-medium tracking-tight">
+                    {session.brandName}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(session.createdAt)} · {postsCount ?? 0} posts
+                    {platforms.length > 0
+                      ? ` · ${platforms.join(", ")}`
+                      : ""}
                   </p>
-                ) : null}
-              </button>
-            </li>
-          ))}
+                  {session.analysis ? (
+                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                      {session.analysis}
+                    </p>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

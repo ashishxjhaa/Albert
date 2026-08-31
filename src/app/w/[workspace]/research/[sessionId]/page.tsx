@@ -4,7 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { SocialMediaPost, SocialResearchSession } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -47,8 +47,14 @@ export default function ResearchSessionPage() {
   }, [params.sessionId, params.workspace, router]);
 
   const insights = session?.insights as
-    | { keyInsights?: string[]; whatWorked?: string[]; whatDidntWork?: string[] }
+    | {
+        keyInsights?: string[];
+        whatWorked?: string[];
+        whatDidntWork?: string[];
+      }
     | null;
+
+  const platforms = session?.platformsAnalyzed ?? [];
 
   return (
     <div className="space-y-6">
@@ -75,7 +81,17 @@ export default function ResearchSessionPage() {
               {session.brandName}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Research session
+              {[
+                session.totalPosts
+                  ? `${session.totalPosts} posts`
+                  : null,
+                platforms.length > 0 ? platforms.join(", ") : null,
+                session.avgEngagement
+                  ? `avg engagement ${session.avgEngagement}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || "Research session"}
             </p>
           </header>
 
@@ -85,6 +101,30 @@ export default function ResearchSessionPage() {
               <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/90">
                 {session.analysis}
               </pre>
+            </section>
+          ) : null}
+
+          {insights?.whatWorked && insights.whatWorked.length > 0 ? (
+            <section className="rounded-xl border border-neutral-200 bg-white p-4">
+              <h2 className="text-sm font-medium tracking-tight">What worked</h2>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                {insights.whatWorked.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {insights?.whatDidntWork && insights.whatDidntWork.length > 0 ? (
+            <section className="rounded-xl border border-neutral-200 bg-white p-4">
+              <h2 className="text-sm font-medium tracking-tight">
+                What didn&apos;t work
+              </h2>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                {insights.whatDidntWork.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
             </section>
           ) : null}
 
@@ -112,10 +152,39 @@ export default function ResearchSessionPage() {
                     key={post.id}
                     className="rounded-lg border border-neutral-200 bg-white p-3 text-sm"
                   >
-                    <p className="text-xs text-muted-foreground">
-                      {post.platform}
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {post.platform}
+                      </p>
+                      {post.url ? (
+                        <a
+                          href={post.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                          Open
+                          <ExternalLink className="size-3" />
+                        </a>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 line-clamp-3">
+                      {post.caption || "No caption"}
                     </p>
-                    <p className="mt-1">{post.caption || "No caption"}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {[
+                        post.viewCount ? `${post.viewCount} views` : null,
+                        post.likeCount ? `${post.likeCount} likes` : null,
+                        post.commentCount
+                          ? `${post.commentCount} comments`
+                          : null,
+                        post.engagementRate
+                          ? `eng ${Number(post.engagementRate).toFixed(1)}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
                   </li>
                 ))}
               </ul>
