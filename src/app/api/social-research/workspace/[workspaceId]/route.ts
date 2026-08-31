@@ -7,6 +7,7 @@ import {
   socialResearchSessions,
   workspaces,
 } from "@/lib/db/schema";
+import { checkAndIncrementUsage } from "@/lib/db/user";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -181,6 +182,22 @@ export async function POST(
 
     if (!workspace) {
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+    }
+
+    const usageCheck = await checkAndIncrementUsage(
+      session.user.id,
+      "research"
+    );
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: "Research limit reached",
+          message: `You have used all ${usageCheck.limit} research sessions available on this account.`,
+          used: usageCheck.used,
+          limit: usageCheck.limit,
+        },
+        { status: 429 }
+      );
     }
 
     const body = await req.json().catch(() => ({}));

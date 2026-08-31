@@ -145,7 +145,7 @@ export default function CampaignsPage() {
       <CreateCampaignModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onCreated={fetchCampaigns}
+        onSaved={fetchCampaigns}
       />
     </div>
   );

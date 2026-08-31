@@ -11,17 +11,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import type { Collection } from "@/lib/db/schema";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-type CreateCampaignModalProps = {
-  isOpen: boolean;
-  onClose: () => void;
-  onCreated?: () => void;
+type CampaignForm = {
+  campaignName: string;
+  brief: string;
+  targetAudience: string;
+  industry: string;
+  tone: string;
 };
 
-const emptyForm = {
+const emptyForm: CampaignForm = {
   campaignName: "",
   brief: "",
   targetAudience: "",
@@ -29,24 +32,49 @@ const emptyForm = {
   tone: "",
 };
 
-export default function CreateCampaignModal({
+type CampaignModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  onSaved?: (campaign?: Collection) => void;
+  /** When set, modal edits this campaign via PATCH instead of creating */
+  campaign?: Collection | null;
+};
+
+export default function CampaignModal({
   isOpen,
   onClose,
-  onCreated,
-}: CreateCampaignModalProps) {
+  onSaved,
+  campaign = null,
+}: CampaignModalProps) {
+  const isEdit = Boolean(campaign?.id);
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState(emptyForm);
+  const [formData, setFormData] = useState<CampaignForm>(emptyForm);
   const params = useParams<{ workspace: string }>();
   const workspaceId = params.workspace;
 
-  const handleChange = (field: keyof typeof emptyForm, value: string) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    if (campaign) {
+      setFormData({
+        campaignName: campaign.campaignName || "",
+        brief: campaign.brief || "",
+        targetAudience: campaign.targetAudience || "",
+        industry: campaign.industry || "",
+        tone: campaign.tone || "",
+      });
+    } else {
+      setFormData(emptyForm);
+    }
+  }, [isOpen, campaign]);
+
+  const handleChange = (field: keyof CampaignForm, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleClose = () => {
     if (isLoading) return;
     onClose();
-    setFormData(emptyForm);
+    if (!isEdit) setFormData(emptyForm);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,26 +86,35 @@ export default function CreateCampaignModal({
 
     setIsLoading(true);
     try {
-      const response = await fetch("/api/collection", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          workspaceId,
-        }),
-      });
+      const response = await fetch(
+        isEdit ? `/api/collection/${campaign!.id}` : "/api/collection",
+        {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...formData,
+            workspaceId,
+          }),
+        }
+      );
 
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.error || "Failed to create campaign");
+        throw new Error(
+          result.error ||
+            (isEdit ? "Failed to update campaign" : "Failed to create campaign")
+        );
       }
 
-      toast.success("Campaign created successfully");
-      setFormData(emptyForm);
+      toast.success(isEdit ? "Campaign updated" : "Campaign created successfully");
+      if (!isEdit) setFormData(emptyForm);
       onClose();
-      onCreated?.();
+      onSaved?.(result.data ?? undefined);
     } catch (error) {
-      toast.error((error as Error).message || "Failed to create campaign");
+      toast.error(
+        (error as Error).message ||
+          (isEdit ? "Failed to update campaign" : "Failed to create campaign")
+      );
     } finally {
       setIsLoading(false);
     }
@@ -92,13 +129,17 @@ export default function CreateCampaignModal({
     >
       <DialogContent className="max-w-lg bg-white sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create New Campaign</DialogTitle>
+          <DialogTitle>
+            {isEdit ? "Edit Campaign" : "Create New Campaign"}
+          </DialogTitle>
           <DialogDescription>
-            Create a new campaign to generate AI-powered ideas for your client.
+            {isEdit
+              ? "Update campaign brief and targeting details."
+              : "Create a new campaign to generate AI-powered ideas for your client."}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="mt-2 space-y-4">
+        <form onSubmit={(e) => void handleSubmit(e)} className="mt-2 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="campaignName">Campaign Name</Label>
             <Input
@@ -171,7 +212,13 @@ export default function CreateCampaignModal({
               disabled={isLoading}
               className="hover:bg-[#e64e00]"
             >
-              {isLoading ? "Creating..." : "Create Campaign"}
+              {isLoading
+                ? isEdit
+                  ? "Saving..."
+                  : "Creating..."
+                : isEdit
+                  ? "Save changes"
+                  : "Create Campaign"}
             </Button>
           </div>
         </form>
@@ -179,3 +226,6 @@ export default function CreateCampaignModal({
     </Dialog>
   );
 }
+
+/** @deprecated Prefer CampaignModal — kept as alias for create flow */
+export { CampaignModal as CreateCampaignModal };

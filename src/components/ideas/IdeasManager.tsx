@@ -1,6 +1,7 @@
 "use client";
 
 import CreateIdeaModal from "@/components/ideas/CreateIdeaModal";
+import CampaignModal from "@/components/dialogs/CreateCampaignModal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import type { Collection, Document } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
-import { Loader2, Plus, Presentation, Sparkles, Wand2 } from "lucide-react";
+import { Loader2, Pencil, Plus, Presentation, Sparkles, Wand2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -78,6 +79,7 @@ export default function IdeasManager({
   const [ideas, setIdeas] = useState<IdeaCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditCampaignOpen, setIsEditCampaignOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<string | null>(null);
 
@@ -341,6 +343,15 @@ export default function IdeasManager({
           <Button
             variant="outline"
             className="h-9"
+            onClick={() => setIsEditCampaignOpen(true)}
+            disabled={!campaign || isGenerating || isGeneratingDeck}
+          >
+            <Pencil className="size-4" />
+            Edit campaign
+          </Button>
+          <Button
+            variant="outline"
+            className="h-9"
             onClick={() => setIsCreateOpen(true)}
             disabled={isGenerating || isGeneratingDeck}
           >
@@ -493,6 +504,16 @@ export default function IdeasManager({
         campaignId={campaignId}
         workspaceId={workspace}
         onCreated={fetchIdeas}
+      />
+
+      <CampaignModal
+        isOpen={isEditCampaignOpen}
+        onClose={() => setIsEditCampaignOpen(false)}
+        campaign={campaign}
+        onSaved={(updated) => {
+          if (updated) setCampaign(updated);
+          else void fetchIdeas();
+        }}
       />
 
       <Dialog open={isDeckDialogOpen} onOpenChange={setIsDeckDialogOpen}>

@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/drizzle";
 import { workspaces } from "@/lib/db/schema";
-import { ragChunks, ragDocuments } from "@/lib/unrag-custom";
+import { embedText } from "@/lib/kb/embed";
+import { ragChunks, ragDocuments, ragEmbeddings } from "@/lib/unrag-custom";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -147,10 +148,20 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    const embedding = await embedText(validated.content);
+    if (embedding) {
+      await db.insert(ragEmbeddings).values({
+        chunkId,
+        embedding,
+        embeddingDimension: embedding.length,
+      });
+    }
+
     return NextResponse.json(
       {
         success: true,
         document: { id: docId, sourceId, title: validated.title },
+        embedded: Boolean(embedding),
       },
       { status: 201 }
     );

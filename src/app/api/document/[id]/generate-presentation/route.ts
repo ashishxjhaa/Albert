@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/drizzle";
 import { documents, presentations, workspaces } from "@/lib/db/schema";
+import { checkAndIncrementUsage } from "@/lib/db/user";
 import { GammaError, extractGammaUrls, gamma } from "@/lib/gamma";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
@@ -54,6 +55,22 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             "Missing GAMMA_API_KEY in environment. Add it to .env.local to generate presentations.",
         },
         { status: 500 }
+      );
+    }
+
+    const usageCheck = await checkAndIncrementUsage(
+      session.user.id,
+      "presentation"
+    );
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: "Presentation limit reached",
+          message: `You have used all ${usageCheck.limit} presentations available on this account.`,
+          used: usageCheck.used,
+          limit: usageCheck.limit,
+        },
+        { status: 429 }
       );
     }
 

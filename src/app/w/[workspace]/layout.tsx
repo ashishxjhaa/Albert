@@ -2,10 +2,12 @@
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { Workspace } from "@/lib/db/schema";
 import { signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 const navItems = [
   { label: "Campaigns", suffix: "campaign" },
@@ -20,12 +22,45 @@ export default function WorkspaceShellLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
   const params = useParams<{ workspace: string }>();
   const pathname = usePathname();
+  const router = useRouter();
   const workspaceId = params.workspace;
-  const workspaceName =
-    session?.user?.activeWorkspace?.name ?? "Workspace";
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+
+  const fetchWorkspaces = useCallback(async () => {
+    try {
+      const res = await fetch("/api/workspace");
+      const result = await res.json();
+      if (res.ok && result.data) {
+        setWorkspaces(result.data);
+      }
+    } catch {
+      // ignore — switcher stays empty
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchWorkspaces();
+  }, [fetchWorkspaces]);
+
+  const handleWorkspaceChange = async (nextId: string) => {
+    if (!nextId || nextId === workspaceId) return;
+    const next = workspaces.find((w) => w.id === nextId);
+    if (!next) return;
+
+    await update({
+      user: {
+        activeWorkspace: {
+          id: next.id,
+          name: next.name,
+          slug: next.slug,
+        },
+      },
+    });
+    router.push(`/w/${next.id}/campaign`);
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -70,10 +105,25 @@ export default function WorkspaceShellLayout({
             </nav>
           </div>
 
-          <div className="flex shrink-0 items-center gap-3">
-            <span className="hidden max-w-[140px] truncate text-sm text-muted-foreground sm:inline">
-              {workspaceName}
-            </span>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <select
+              aria-label="Switch workspace"
+              value={workspaceId}
+              onChange={(e) => void handleWorkspaceChange(e.target.value)}
+              className="h-8 max-w-[160px] truncate rounded-md border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+            >
+              {workspaces.length === 0 ? (
+                <option value={workspaceId}>
+                  {session?.user?.activeWorkspace?.name ?? "Workspace"}
+                </option>
+              ) : (
+                workspaces.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))
+              )}
+            </select>
             <Link
               href="/workspace"
               className={cn(
@@ -81,7 +131,7 @@ export default function WorkspaceShellLayout({
                 "h-8"
               )}
             >
-              Switch workspace
+              Manage
             </Link>
             <Button
               variant="ghost"

@@ -8,7 +8,11 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+
+const markdownClassName =
+  "max-w-none text-[15px] leading-relaxed text-foreground/90 [&_h1]:mb-3 [&_h1]:mt-6 [&_h1]:text-xl [&_h1]:font-medium [&_h2]:mb-3 [&_h2]:mt-6 [&_h2]:text-lg [&_h2]:font-medium [&_h3]:mb-2 [&_h3]:mt-5 [&_h3]:text-base [&_h3]:font-medium [&_p]:mb-3 [&_strong]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_li]:leading-relaxed";
 
 export default function ResearchSessionPage() {
   const params = useParams<{ workspace: string; sessionId: string }>();
@@ -98,9 +102,9 @@ export default function ResearchSessionPage() {
           {session.analysis ? (
             <section className="rounded-xl border border-neutral-200 bg-white p-4">
               <h2 className="text-sm font-medium tracking-tight">Analysis</h2>
-              <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/90">
-                {session.analysis}
-              </pre>
+              <div className={`mt-2 ${markdownClassName}`}>
+                <ReactMarkdown>{session.analysis}</ReactMarkdown>
+              </div>
             </section>
           ) : null}
 
