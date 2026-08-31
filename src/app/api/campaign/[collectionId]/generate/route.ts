@@ -2,9 +2,15 @@ import { getAiModel } from "@/lib/ai/model-provider";
 import { tavilySearch } from "@/lib/ai/tavily";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/drizzle";
-import { collections, documents, workspaces } from "@/lib/db/schema";
+import {
+  collections,
+  documents,
+  socialResearchSessions,
+  workspaces,
+} from "@/lib/db/schema";
+import { searchWorkspaceKb } from "@/lib/kb/search";
 import { generateText } from "ai";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 300;
@@ -129,9 +135,16 @@ export async function POST(
         const brandName =
           workspace.brandName || workspace.name || "the brand";
         const website = workspace.website;
+        const industry =
+          campaign.industry || workspace.industry || "N/A";
+        const brandColors = workspace.brandColors as
+          | { primary?: string; secondary?: string; accent?: string }
+          | null;
 
         let searchAnswer: string | null = null;
         let rawSearchResults = "";
+        let kbExcerpts = "";
+        let researchInsights = "";
 
         send("status", { message: "Researching brand (optional web search)..." });
         try {
@@ -164,17 +177,158 @@ export async function POST(
           });
         }
 
+        send("status", { message: "Searching knowledge base..." });
+        try {
+          const briefSnippet = (campaign.brief || "").trim().slice(0, 80);
+          const kbQuery =
+            [
+              brandName,
+              campaign.industry,
+              campaign.targetAudience,
+              briefSnippet || null,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .trim() || "campaign marketing";
+
+          const kbHits = await searchWorkspaceKb({
+            userId,
+            workspaceId: campaign.workspaceId,
+            query: kbQuery,
+            topK: 5,
+          });
+
+          if (kbHits.length > 0) {
+            kbExcerpts = kbHits
+              .map((hit, i) => {
+                const text = hit.content.slice(0, 500);
+                return `${i + 1}. [${hit.sourceId}]\n${text}`;
+              })
+              .join("\n\n");
+            send("status", {
+              message: `Found ${kbHits.length} knowledge base match(es).`,
+            });
+          } else {
+            send("status", {
+              message: "No KB matches — continuing.",
+            });
+          }
+        } catch (error) {
+          console.error("KB search failed:", error);
+          send("status", {
+            message: "Knowledge base search skipped — continuing.",
+          });
+        }
+
+        send("status", { message: "Loading research insights..." });
+        try {
+          const [campaignResearch] = await db
+            .select()
+            .from(socialResearchSessions)
+            .where(
+              and(
+                eq(socialResearchSessions.workspaceId, campaign.workspaceId),
+                eq(socialResearchSessions.campaignId, collectionId),
+                isNull(socialResearchSessions.deletedAt)
+              )
+            )
+            .orderBy(desc(socialResearchSessions.createdAt))
+            .limit(1);
+
+          let research = campaignResearch ?? null;
+
+          if (!research) {
+            const [workspaceResearch] = await db
+              .select()
+              .from(socialResearchSessions)
+              .where(
+                and(
+                  eq(
+                    socialResearchSessions.workspaceId,
+                    campaign.workspaceId
+                  ),
+                  isNull(socialResearchSessions.deletedAt)
+                )
+              )
+              .orderBy(desc(socialResearchSessions.createdAt))
+              .limit(1);
+            research = workspaceResearch ?? null;
+          }
+
+          if (research) {
+            const parts: string[] = [];
+            if (research.analysis) {
+              parts.push(research.analysis.slice(0, 2000));
+            }
+            const insights = research.insights as {
+              keyInsights?: unknown;
+            } | null;
+            if (
+              insights?.keyInsights &&
+              Array.isArray(insights.keyInsights) &&
+              insights.keyInsights.length > 0
+            ) {
+              parts.push(
+                `Key insights:\n${insights.keyInsights
+                  .map((k) => `- ${String(k)}`)
+                  .join("\n")}`
+              );
+            }
+            if (parts.length > 0) {
+              researchInsights = parts.join("\n\n");
+              send("status", {
+                message: `Loaded research for ${research.brandName}.`,
+              });
+            } else {
+              send("status", {
+                message: "Research session found but empty — continuing.",
+              });
+            }
+          } else {
+            send("status", {
+              message: "No research sessions — continuing.",
+            });
+          }
+        } catch (error) {
+          console.error("Research load failed:", error);
+          send("status", {
+            message: "Research insights skipped — continuing.",
+          });
+        }
+
         let brandProfileContent = `Brand Name: ${brandName}\n`;
         if (website) brandProfileContent += `Website: ${website}\n`;
         brandProfileContent += `Campaign Brief: ${campaign.brief || "N/A"}\n`;
         brandProfileContent += `Target Audience: ${campaign.targetAudience || "N/A"}\n`;
-        brandProfileContent += `Industry: ${campaign.industry || "N/A"}\n`;
-        brandProfileContent += `Tone: ${campaign.tone || "N/A"}\n\n`;
+        brandProfileContent += `Industry: ${industry}\n`;
+        brandProfileContent += `Tone: ${campaign.tone || "N/A"}\n`;
+        if (workspace.brandGuidelines) {
+          brandProfileContent += `Brand Guidelines: ${workspace.brandGuidelines}\n`;
+        }
+        if (
+          brandColors?.primary ||
+          brandColors?.secondary ||
+          brandColors?.accent
+        ) {
+          const colorParts = [
+            brandColors.primary && `Primary: ${brandColors.primary}`,
+            brandColors.secondary && `Secondary: ${brandColors.secondary}`,
+            brandColors.accent && `Accent: ${brandColors.accent}`,
+          ].filter(Boolean);
+          brandProfileContent += `Brand Colors: ${colorParts.join(", ")}\n`;
+        }
+        brandProfileContent += `\n`;
         if (searchAnswer) {
           brandProfileContent += `Key Web Answer: ${searchAnswer}\n\n`;
         }
         if (rawSearchResults) {
           brandProfileContent += `Relevant Search Results:\n${rawSearchResults}\n\n`;
+        }
+        if (kbExcerpts) {
+          brandProfileContent += `Knowledge Base Excerpts:\n${kbExcerpts}\n\n`;
+        }
+        if (researchInsights) {
+          brandProfileContent += `Research Insights:\n${researchInsights}\n\n`;
         }
 
         send("status", { message: "Summarizing brand profile..." });

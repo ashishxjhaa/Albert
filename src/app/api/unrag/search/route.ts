@@ -1,8 +1,8 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/drizzle";
 import { workspaces } from "@/lib/db/schema";
-import { ragChunks } from "@/lib/unrag-custom";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { searchWorkspaceKb } from "@/lib/kb/search";
+import { and, eq, isNull } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -38,24 +38,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
 
-    const pattern = `%${query}%`;
-    const results = await db
-      .select({
-        id: ragChunks.id,
-        content: ragChunks.content,
-        sourceId: ragChunks.sourceId,
-        metadata: ragChunks.metadata,
-        documentId: ragChunks.documentId,
-      })
-      .from(ragChunks)
-      .where(
-        and(
-          sql`${ragChunks.metadata}->>'userId' = ${session.user.id}`,
-          sql`${ragChunks.metadata}->>'workspaceId' = ${workspaceId}`,
-          sql`${ragChunks.content} ILIKE ${pattern}`
-        )
-      )
-      .limit(topK);
+    const results = await searchWorkspaceKb({
+      userId: session.user.id,
+      workspaceId,
+      query,
+      topK,
+    });
 
     return NextResponse.json({
       success: true,
