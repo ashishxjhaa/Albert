@@ -12,6 +12,7 @@ const navItems = [
   { label: "Ideas", suffix: "ideas" },
   { label: "Research", suffix: "research" },
   { label: "KB", suffix: "kb" },
+  { label: "Settings", suffix: "settings" },
 ] as const;
 
 export default function WorkspaceShellLayout({
